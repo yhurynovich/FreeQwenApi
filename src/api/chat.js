@@ -822,6 +822,10 @@ async function executeApiRequestWithNodeStreaming(apiUrl, payload, token, onChun
                 try {
                     const chunk = JSON.parse(jsonStr);
 
+                    if (process.env.DEBUG_SSE_CHUNKS === 'true') {
+                        logWarn(`[SSE-DEBUG] ${jsonStr.substring(0, 800)}`);
+                    }
+
                     if (chunk.code === 'RateLimited' || (chunk.code && chunk.detail)) {
                         streamError = { status: 429, errorBody: JSON.stringify(chunk) };
                         finished = true;
@@ -1084,7 +1088,7 @@ async function handleApiError(response, tokenObj, requestContext) {
     const { chatId, retryCount, fileAccountId } = requestContext;
     logRaw(JSON.stringify(response));
     logError(`Ошибка при получении ответа: ${response.error || response.statusText || `HTTP ${response.status || 'unknown'}`}`);
-    if (response.errorBody) logDebug(`Тело ответа с ошибкой: ${response.errorBody}`);
+    if (response.errorBody) logWarn(`Тело ответа с ошибкой: ${response.errorBody}`);
 
     if (response.html && response.html.includes('Verification')) {
         setAuthenticationStatus(false);
@@ -1166,7 +1170,8 @@ async function handleApiError(response, tokenObj, requestContext) {
         return { error: `Все токены заблокированы по лимиту (${hours}ч)`, chatId };
     }
 
-    return { error: response.error || response.statusText, details: response.errorBody || 'Нет дополнительных деталей', chatId };
+    const fallbackError = response.error || response.statusText || (response.status ? `HTTP ${response.status}` : 'Неизвестная ошибка ответа');
+    return { error: fallbackError, details: response.errorBody || 'Нет дополнительных деталей', chatId };
 }
 
 // ─── Main public API ─────────────────────────────────────────────────────────
