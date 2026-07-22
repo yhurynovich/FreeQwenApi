@@ -1135,8 +1135,10 @@ async function handleApiError(response, tokenObj, requestContext) {
         let hours = 24;
         try {
             const rateInfo = JSON.parse(response.errorBody);
-            const parsedHours = Number(rateInfo.num);
-            hours = Number.isFinite(parsedHours) && parsedHours > 0 ? parsedHours : 24;
+            // Qwen returns the wait time nested at data.num, in MINUTES
+            // (see data.template: "Please wait {{num}} minutes before trying again.")
+            const parsedMinutes = Number(rateInfo?.data?.num);
+            hours = Number.isFinite(parsedMinutes) && parsedMinutes > 0 ? parsedMinutes / 60 : 24;
         } catch { /* errorBody might not be valid JSON */ }
 
         markRateLimitedByToken(tokenObj?.token, hours);
@@ -1588,8 +1590,10 @@ export async function createChatV2(model = DEFAULT_MODEL, title = 'Новый ч
         if (isRateLimited) {
             let hours = 24;
             try {
-                const parsedHours = Number(JSON.parse(structuredErrorBody).num);
-                hours = Number.isFinite(parsedHours) && parsedHours > 0 ? parsedHours : 24;
+                // Qwen returns the wait time nested at data.num, in MINUTES
+                // (see data.template: "Please wait {{num}} minutes before trying again.")
+                const parsedMinutes = Number(JSON.parse(structuredErrorBody)?.data?.num);
+                hours = Number.isFinite(parsedMinutes) && parsedMinutes > 0 ? parsedMinutes / 60 : 24;
             } catch { /* non-JSON body */ }
             markRateLimitedByToken(tokenObj.token, hours);
             if (isBrowserAccountId(tokenObj.id) || browserAuthToken === tokenObj.token) {
